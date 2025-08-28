@@ -8,7 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"math/rand/v2"
+
+	"math/rand"
 
 	"chainmaker.org/chainmaker/pb-go/v2/common"
 	sdk "chainmaker.org/chainmaker/sdk-go/v2"
@@ -24,7 +25,7 @@ var seq int64
 func init() {
 	configFile = flag.String("c", "chainmaker/config/conf2-1.toml", "配置文件路径")
 
-	seq = rand.Int64N(1000000007)
+	seq = int64(rand.Intn(100000000))
 }
 
 func main() {

@@ -1,6 +1,6 @@
 module cipstests
 
-go 1.23
+go 1.19
 
 require (
 	chainmaker.org/chainmaker/pb-go/v2 v2.4.0
