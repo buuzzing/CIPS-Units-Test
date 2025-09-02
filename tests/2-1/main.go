@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"os/exec"
+	"time"
 
 	"math/rand"
 
@@ -46,6 +48,38 @@ func main() {
 
 // 长安链向中继链（长安链）发送正确的跨链消息
 func test_2_1_1(client *sdk.ChainClient) {
+	command := "./txtools -c \"chainmaker/config/conf2-1.toml\" -app \"sendMsg\" " +
+		"-op \"send\" -vf 301 -tp 401 -chain1 20007"
+
+	cmd := exec.Command("bash", "-c", command)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		panic(fmt.Sprintf("执行命令失败: %v, 输出: %s", err, string(out)))
+	}
+	clog.Infof("命令输出: %s", string(out))
+
+	// 等待一段时间，确保消息被处理
+	time.Sleep(10 * time.Second)
+}
+
+// 长安链向中继链（长安链）发送错误编码的跨链消息
+// 直接调用中继链验证层的接收方法
+func test_2_1_2(client *sdk.ChainClient) {
+	ccMsgBytes := []byte("error encoding")
+
+	kvs := []*common.KeyValuePair{
+		{Key: "ccMsg", Value: ccMsgBytes},
+	}
+	resp, err := chaintools.InvokeContract(client, types.TransportAddr, "receiveIn", kvs, true)
+	if err != nil {
+		panic(err)
+	}
+
+	chaintools.PrintTxResp(resp, nil)
+}
+
+// 长安链向中继链（长安链）发送重复的跨链消息
+func test_2_1_3(client *sdk.ChainClient) {
 	ccMsg := types.CrosschainMessage{
 		SrcChainId:          big.NewInt(1),
 		DstChainId:          big.NewInt(1),
@@ -71,60 +105,17 @@ func test_2_1_1(client *sdk.ChainClient) {
 	kvs := []*common.KeyValuePair{
 		{Key: "ccMsg", Value: ccMsgBytes},
 	}
-	resp, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
+	// 正常发送一次
+	_, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
 	if err != nil {
 		panic(err)
 	}
 
-	chaintools.PrintTxResp(resp, nil)
-}
-
-// 长安链向中继链（长安链）发送错误编码的跨链消息
-func test_2_1_2(client *sdk.ChainClient) {
-	ccMsgBytes := []byte("error encoding")
-
-	kvs := []*common.KeyValuePair{
-		{Key: "ccMsg", Value: ccMsgBytes},
-	}
+	// 重复发送一次
 	resp, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
 	if err != nil {
 		panic(err)
 	}
-
-	chaintools.PrintTxResp(resp, nil)
-}
-
-// 长安链向中继链（长安链）发送重复的跨链消息
-func test_2_1_3(client *sdk.ChainClient) {
-	ccMsg := types.CrosschainMessage{
-		SrcChainId:          big.NewInt(1),
-		DstChainId:          big.NewInt(1),
-		Seq:                 big.NewInt(seq), // 与测试用例 2-1-1 相同的 Seq
-		SrcAppId:            big.NewInt(1),
-		DstAppId:            big.NewInt(1),
-		PayloadReq:          [][]byte{},
-		PayloadResp:         [][]byte{},
-		TransactionTypeId:   big.NewInt(1),
-		TransactionPayload:  [][]byte{},
-		VerificationTypeId:  big.NewInt(1),
-		VerificationPayload: [][]byte{},
-		TransmissionTypeId:  big.NewInt(1),
-		TransmissionPayload: [][]byte{},
-		TransportTypeId:     big.NewInt(1),
-		TransportPayload:    [][]byte{},
-		HashReq:             []byte{},
-		HashResp:            []byte{},
-		Ack:                 false,
-	}
-	ccMsgBytes, _ := json.Marshal(ccMsg)
-
-	kvs := []*common.KeyValuePair{
-		{Key: "ccMsg", Value: ccMsgBytes},
-	}
-	resp, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
-	if err != nil {
-		panic(err)
-	}
-
+	// 预期这里会报错，提示重复消息
 	chaintools.PrintTxResp(resp, nil)
 }
