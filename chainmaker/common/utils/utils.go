@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"cips-chainmaker/common/types"
+	"cipstests/chainmaker/common/types"
 	"encoding/binary"
 	"math/big"
 
