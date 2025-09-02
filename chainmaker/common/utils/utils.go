@@ -151,3 +151,16 @@ func IntToBytes32(dataInt int) []byte {
 	binary.BigEndian.PutUint64(dataBytes[24:], dataUint64)
 	return dataBytes[:]
 }
+
+func ConvertLbToUint(data [][]byte) [][]uint {
+	// 将 [][]byte 转换为 [][]uint
+	// 这里假设 data 中的每个 []byte 都是一个 uint 的二进制表示
+	result := make([][]uint, len(data))
+	for i, b := range data {
+		result[i] = make([]uint, len(b))
+		for j, v := range b {
+			result[i][j] = uint(v)
+		}
+	}
+	return result
+}
