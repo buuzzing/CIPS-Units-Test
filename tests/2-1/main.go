@@ -39,7 +39,7 @@ func main() {
 	client := chaintools.GetChainClient()
 
 	clog.Info("-------- 2-1-1. 长安链向中继链（长安链）发送跨链消息 --------")
-	test_2_1_1(client)
+	test_2_1_1()
 	clog.Info("-------- 2-1-2. 长安链向中继链（长安链）发送错误编码的跨链消息 --------")
 	test_2_1_2(client)
 	clog.Info("-------- 2-1-3. 长安链向中继链（长安链）发送重复的跨链消息 --------")
@@ -47,9 +47,9 @@ func main() {
 }
 
 // 长安链向中继链（长安链）发送正确的跨链消息
-func test_2_1_1(client *sdk.ChainClient) {
+func test_2_1_1() {
 	command := "./txtools -c \"chainmaker/config/conf2-1.toml\" -app \"sendMsg\" " +
-		"-op \"send\" -vf 301 -tp 401 -chain1 20007"
+		"-op \"send\" -vf 300 -tp 401 -chain1 20007"
 
 	cmd := exec.Command("bash", "-c", command)
 	out, err := cmd.CombinedOutput()
