@@ -1,0 +1,7 @@
+chain_id = "chain1" # 启动的链 ID
+auth_type = "public" # 链认证类型
+hash_type = "SHA256" # 哈希算法
+rpc_addr = "127.0.0.1:12301" # 链节点的 rpc 地址
+conn_num = 10 # 链节点连接数
+
+user_key_path = ["chainmaker/config/admin.key"] # 链节点用户私钥路径

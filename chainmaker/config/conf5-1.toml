@@ -1,4 +1,4 @@
-chain = "chainmaker/config/chain2-1.toml"
+chain = "chainmaker/config/chain5-1.toml"
 
 [relayer]
 name = "relayer1-1"

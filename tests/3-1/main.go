@@ -25,7 +25,7 @@ var configFile *string
 var seq int64
 
 func init() {
-	configFile = flag.String("c", "chainmaker/config/conf2-1.toml", "配置文件路径")
+	configFile = flag.String("c", "chainmaker/config/conf3-1.toml", "配置文件路径")
 
 	seq = int64(rand.Intn(100000000))
 }
@@ -38,17 +38,17 @@ func main() {
 
 	client := chaintools.GetChainClient()
 
-	clog.Info("-------- 2-1-1. 长安链向中继链（长安链）发送跨链消息 --------")
-	test_2_1_1()
-	clog.Info("-------- 2-1-2. 长安链向中继链（长安链）发送错误编码的跨链消息 --------")
-	test_2_1_2(client)
-	clog.Info("-------- 2-1-3. 长安链向中继链（长安链）发送重复的跨链消息 --------")
-	test_2_1_3(client)
+	clog.Info("-------- 3-1-1. 长安链向中继链（长安链）发送正确的自动请求应答跨链消息 --------")
+	test_3_1_1()
+	clog.Info("-------- 3-1-2. 长安链向中继链（长安链）发送错误编码的自动请求应答跨链消息 --------")
+	test_3_1_2(client)
+	clog.Info("-------- 3-1-3. 长安链向中继链（长安链）发送重复的自动请求应答跨链消息 --------")
+	test_3_1_3(client)
 }
 
-// 长安链向中继链（长安链）发送正确的跨链消息
-func test_2_1_1() {
-	command := "./txtools -c \"chainmaker/config/conf2-1.toml\" -app \"sendMsg\" " +
+// 长安链向中继链（长安链）发送正确的自动请求应答跨链消息
+func test_3_1_1() {
+	command := "./txtools -c \"chainmaker/config/conf3-1.toml\" -app \"autoResp\" " +
 		"-op \"send\" -vf 300 -tp 401 -chain1 20007"
 
 	cmd := exec.Command("bash", "-c", command)
@@ -62,15 +62,14 @@ func test_2_1_1() {
 	time.Sleep(10 * time.Second)
 }
 
-// 长安链向中继链（长安链）发送错误编码的跨链消息
-// 直接调用中继链验证层的接收方法
-func test_2_1_2(client *sdk.ChainClient) {
+// 长安链向中继链（长安链）发送错误编码的自动请求应答跨链消息
+func test_3_1_2(client *sdk.ChainClient) {
 	ccMsgBytes := []byte("error encoding")
 
 	kvs := []*common.KeyValuePair{
 		{Key: "ccMsg", Value: ccMsgBytes},
 	}
-	resp, err := chaintools.InvokeContract(client, types.TransportAddr1, "receiveIn", kvs, true)
+	resp, err := chaintools.InvokeContract(client, types.TransportAddr2, "receiveIn", kvs, true)
 	if err != nil {
 		panic(err)
 	}
@@ -78,8 +77,8 @@ func test_2_1_2(client *sdk.ChainClient) {
 	chaintools.PrintTxResp(resp, nil)
 }
 
-// 长安链向中继链（长安链）发送重复的跨链消息
-func test_2_1_3(client *sdk.ChainClient) {
+// 长安链向中继链（长安链）发送重复的自动请求应答跨链消息
+func test_3_1_3(client *sdk.ChainClient) {
 	ccMsg := types.CrosschainMessage{
 		SrcChainId:          big.NewInt(1),
 		DstChainId:          big.NewInt(1),
@@ -106,13 +105,13 @@ func test_2_1_3(client *sdk.ChainClient) {
 		{Key: "ccMsg", Value: ccMsgBytes},
 	}
 	// 正常发送一次
-	_, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
+	_, err := chaintools.InvokeContract(client, types.TransportAddr2, "sendOut", kvs, true)
 	if err != nil {
 		panic(err)
 	}
 
 	// 重复发送一次
-	resp, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
+	resp, err := chaintools.InvokeContract(client, types.TransportAddr2, "sendOut", kvs, true)
 	if err != nil {
 		panic(err)
 	}
