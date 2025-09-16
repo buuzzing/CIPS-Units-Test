@@ -37,8 +37,6 @@ func main() {
 	test_1_2_3(client)
 	clog.Info("-------- 1-2-4. 根据不存在的ID查询协议的地址 --------")
 	test_1_2_4(client)
-	clog.Info("-------- 1-2-5. 根据非法协议ID查询协议的地址 --------")
-	test_1_2_5(client)
 
 }
 
@@ -87,20 +85,6 @@ func test_1_2_3(client *sdk.ChainClient) {
 // 根据不存在的ID查询协议的地址
 func test_1_2_4(client *sdk.ChainClient) {
 	protocol_id := big.NewInt(500).Bytes() //不存在的协议
-	kvs := []*common.KeyValuePair{
-		{Key: "id", Value: protocol_id},
-	}
-	resp, err := chaintools.InvokeContract(client, types.TransportRegAddr, "get", kvs, true)
-	if err != nil {
-		panic(err)
-	}
-
-	chaintools.PrintTxResp(resp, nil)
-}
-
-// 根据非法协议ID查询协议的地址
-func test_1_2_5(client *sdk.ChainClient) {
-	protocol_id := big.NewInt(0).Bytes() //0或负数
 	kvs := []*common.KeyValuePair{
 		{Key: "id", Value: protocol_id},
 	}

@@ -7,7 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-
+	"time"
 	"chainmaker.org/chainmaker/pb-go/v2/common"
 	sdk "chainmaker.org/chainmaker/sdk-go/v2"
 	clog "github.com/kpango/glg"
@@ -15,10 +15,12 @@ import (
 
 // 配置文件路径
 var configFile *string
-
+var protocolId int64
+var protocolAddr string
 func init() {
 	configFile = flag.String("c", "chainmaker/config/conf1-4.toml", "配置文件路径")
-
+	protocolId = time.Now().Unix()
+	protocolAddr = "NewAddress" + fmt.Sprintf("%d", protocolId)
 }
 
 func main() {
@@ -38,11 +40,22 @@ func main() {
 
 // 退出已注册协议
 func test_1_4_1(client *sdk.ChainClient) {
-	protocol_id := big.NewInt(100).Bytes() //为了不改变现有协议id对应的地址，提前注册一个测试协议id
+	//注册协议
+	protocol_address := []byte(protocolAddr)
+	protocol_id := big.NewInt(protocolId).Bytes()
 	kvs := []*common.KeyValuePair{
+		{Key: "address", Value: protocol_address},
 		{Key: "id", Value: protocol_id},
 	}
-	resp, err := chaintools.InvokeContract(client, types.TransportRegAddr, "leave", kvs, true)
+	resp, err := chaintools.InvokeContract(client, types.TransportRegAddr, "set", kvs, true)
+	if err != nil {
+		panic(err)
+	}
+	//退出协议
+	kvs = []*common.KeyValuePair{
+		{Key: "id", Value: protocol_id},
+	}
+	resp, err = chaintools.InvokeContract(client, types.TransportRegAddr, "leave", kvs, true)
 	if err != nil {
 		panic(err)
 	}
