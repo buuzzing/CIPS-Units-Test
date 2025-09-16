@@ -18,7 +18,7 @@ var configFile *string
 var seq int64
 
 func init() {
-	configFile = flag.String("c", "chainmaker/config/conf11-1.toml", "配置文件路径")
+	configFile = flag.String("c", "chainmaker/config/conf11-1-1.toml", "配置文件路径")
 
 	seq = int64(rand.Intn(100000000))
 }
@@ -37,7 +37,7 @@ func main() {
 
 // 正常执行并完成事务提交
 func test_11_1_1() {
-	command := "./txtools -c \"chainmaker/config/conf11-1.toml\" -app \"atomic\" " +
+	command := "./txtools -c \"chainmaker/config/conf11-1-1.toml\" -app \"atomic\" " +
 		"-op \"send\" -vf 300 -tp 401 -chain1 20007"
 	cmd := exec.Command("bash", "-c", command)
 	out, err := cmd.CombinedOutput()
@@ -52,7 +52,7 @@ func test_11_1_1() {
 
 // 状态异常并完成事务回滚
 func test_11_1_2() {
-	command := "./txtools -c \"chainmaker/config/conf11-1.toml\" -app \"atomic\" " +
+	command := "./txtools -c \"chainmaker/config/conf11-1-1.toml\" -app \"atomic\" " +
 		"-op \"rollback\" -vf 300 -tp 401 -chain1 20007"
 	cmd := exec.Command("bash", "-c", command)
 	out, err := cmd.CombinedOutput()

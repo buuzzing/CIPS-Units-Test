@@ -1,12 +1,7 @@
-[chain]
 chain_id = "chain2" # 启动的链 ID
 auth_type = "public" # 链认证类型
 hash_type = "SHA256" # 哈希算法
 rpc_addr = "47.111.78.240:60021" # 链节点的 rpc 地址
 conn_num = 10 # 链节点连接数
+
 user_key_path = ["chainmaker/config/user.key"] # 链节点用户私钥路径
-
-
-[[listeners]]
-contract_name = "AtomicTransferApp"
-event_names = ["preLock", "commit", "rollBack"]
