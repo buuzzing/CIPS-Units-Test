@@ -106,13 +106,13 @@ func test_2_1_3(client *sdk.ChainClient) {
 		{Key: "ccMsg", Value: ccMsgBytes},
 	}
 	// 正常发送一次
-	_, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
+	_, err := chaintools.InvokeContract(client, types.TransportAddr1, "sendOut", kvs, true)
 	if err != nil {
 		panic(err)
 	}
 
 	// 重复发送一次
-	resp, err := chaintools.InvokeContract(client, types.TransportAddr, "sendOut", kvs, true)
+	resp, err := chaintools.InvokeContract(client, types.TransportAddr1, "sendOut", kvs, true)
 	if err != nil {
 		panic(err)
 	}
