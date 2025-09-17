@@ -1,7 +1,1 @@
 chain = "chainmaker/config/chain6-1.toml"
-
-[relayer]
-name = "relayer1-1"
-enable = true
-chain_id = 20006
-verification_addr = "127.0.0.1:60029"

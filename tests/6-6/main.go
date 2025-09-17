@@ -10,9 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"math/rand"
-	"os/exec"
-	"time"
 
 	"chainmaker.org/chainmaker/pb-go/v2/common"
 	sdk "chainmaker.org/chainmaker/sdk-go/v2"
@@ -22,13 +19,8 @@ import (
 // 配置文件路径
 var configFile *string
 
-// 随机指定一个 seq
-var seq int64
-
 func init() {
-	configFile = flag.String("c", "chainmaker/config/conf6-1.toml", "配置文件路径")
-
-	seq = int64(rand.Intn(100000000))
+	configFile = flag.String("c", "chainmaker/config/conf6-6.toml", "配置文件路径")
 }
 
 func main() {
@@ -38,34 +30,15 @@ func main() {
 	}
 
 	client := chaintools.GetChainClient()
-	_ = client
 
-	clog.Info("-------- 6-1-1. 长安链relayer向中继链转发正确验证信息 --------")
-	test_6_1_1()
-	// clog.Info("-------- 6-1-2. 长安链relayer向中继链转发仅包含部分签名的验证信息 --------")
-	// test_6_1_2(client)
-	// clog.Info("-------- 6-1-3. 长安链relayer向中继链转发被篡改的验证信息 --------")
-	// test_6_1_3(client)
-}
-
-// 长安链relayer向中继链转发正确验证信息
-func test_6_1_1() {
-	command := "./txtools -c \"chainmaker/config/conf6-1.toml\" -app \"autoResp\" " +
-		"-op \"send\" -vf 302 -tp 401 -chain1 20007"
-	cmd := exec.Command("bash", "-c", command)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		panic(fmt.Sprintf("执行命令失败: %v, 输出: %s", err, string(out)))
-	}
-	clog.Infof("命令输出: %s", string(out))
-
-	// 等待一段时间，确保消息被处理
-	time.Sleep(10 * time.Second)
+	clog.Info("-------- 6-6-1. 长安链relayer向中继链转发仅包含部分签名的验证信息 --------")
+	test_6_6_1(client)
+	clog.Info("-------- 6-6-2. 长安链relayer向中继链转发被篡改的验证信息 --------")
+	test_6_6_2(client)
 }
 
 // 长安链relayer向中继链转发仅包含部分签名的验证信息
-func test_6_1_2(client *sdk.ChainClient) {
-
+func test_6_6_1(client *sdk.ChainClient) {
 	ccMsg := types.CrosschainMessage{
 		SrcChainId:          big.NewInt(123),
 		DstChainId:          big.NewInt(456),
@@ -108,8 +81,7 @@ func test_6_1_2(client *sdk.ChainClient) {
 }
 
 // 长安链relayer向中继链转发被篡改的验证信息
-func test_6_1_3(client *sdk.ChainClient) {
-
+func test_6_6_2(client *sdk.ChainClient) {
 	ccMsg := types.CrosschainMessage{
 		SrcChainId:          big.NewInt(123),
 		DstChainId:          big.NewInt(456),
