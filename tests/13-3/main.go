@@ -4,7 +4,6 @@ import (
 	xconf "cipstests/chainmaker/common/config"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os/exec"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 
 // 配置文件路径
 var configFile *string
-
 
 func init() {
 	configFile = flag.String("c", "chainmaker/config/conf13-3.toml", "配置文件路径")
@@ -31,7 +29,7 @@ func main() {
 
 // 正常执行并完成事务提交
 func test_13_3() {
-	command := "./txtools -c \"chainmaker/config/conf13-3.toml\" -app \"sendMsg\" " +
+	command := "./txtools -c \"chainmaker/config/conf13-3.toml\" -app \"autoResp\" " +
 		"-op \"send\" -vf 302 -tp 401 -chain1 10006"
 	cmd := exec.Command("bash", "-c", command)
 	out, err := cmd.CombinedOutput()
