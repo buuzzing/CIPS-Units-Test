@@ -1,0 +1,45 @@
+package main
+
+import (
+	xconf "cipstests/chainmaker/common/config"
+	"flag"
+	"fmt"
+	"math/rand"
+	"os/exec"
+	"time"
+
+	clog "github.com/kpango/glg"
+)
+
+// 配置文件路径
+var configFile *string
+
+
+func init() {
+	configFile = flag.String("c", "chainmaker/config/conf13-1-1.toml", "配置文件路径")
+}
+
+func main() {
+	flag.Parse()
+	if err := xconf.Init(*configFile); err != nil {
+		panic(fmt.Sprintf("加载配置文件失败: %v", err))
+	}
+
+	clog.Info("-------- 13-1-2. 用户发起两方资产交换请求时选择<基础事务协议,公证人签名的跨链验证,基础跨链传输协议> --------")
+	test_13_1_2()
+}
+
+// 正常执行并完成事务提交
+func test_13_1_2() {
+	command := "./txtools -c \"chainmaker/config/conf13-1.toml\" -app \"atomic\" " +
+		"-op \"send\" -vf 301 -tp 401 -chain1 20007"
+	cmd := exec.Command("bash", "-c", command)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		panic(fmt.Sprintf("执行命令失败: %v, 输出: %s", err, string(out)))
+	}
+	clog.Infof("命令输出: %s", string(out))
+
+	// 等待一段时间，确保消息被处理
+	time.Sleep(10 * time.Second)
+}
