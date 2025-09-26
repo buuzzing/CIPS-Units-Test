@@ -15,13 +15,20 @@ import (
 	clog "github.com/kpango/glg"
 )
 
-const TestTime = 1800 // 测试总时长，单位秒
+var TestTime int // 测试总时长，单位秒
 
 // 配置文件路径
 var configFile *string
 
+// 目标链写操作 kv
+var targetKey, targetVal string
+
 func init() {
 	configFile = flag.String("c", "chainmaker/config/conf14-1.toml", "配置文件路径")
+	flag.IntVar(&TestTime, "t", 60, "测试总时长，单位秒")
+
+	flag.StringVar(&targetKey, "k", "key4", "目标链写操作的key")
+	flag.StringVar(&targetVal, "v", "value4", "目标链写操作的value")
 }
 
 func main() {
@@ -36,16 +43,20 @@ func main() {
 	testCrossChain(client, &crossChainRecord)
 	testSingleChain(client, &singleChainRecord)
 
-	clog.Info("-------- 14-1-1 长安链-长安链间的跨链读时延 --------")
-	fmt.Printf("跨链读时延测试统计结果:\n")
+	clog.Info("-------- 14-1-2 长安链-长安链间的跨链写时延 --------")
+	fmt.Printf("跨链写时延测试统计结果:\n")
 	printRecord(crossChainRecord)
-	fmt.Printf("\n单链跨合约读时延测试统计结果:\n")
+	fmt.Printf("\n单链写时延测试统计结果:\n")
 	printRecord(singleChainRecord)
 }
 
 func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Duration) {
 	appArgs := [][]byte{
-		[]byte("key1"),
+		{2},               // OpType
+		[]byte(""),        // OriginKey
+		[]byte(""),        // OriginVal
+		[]byte(targetKey), // TargetKey
+		[]byte(targetVal), // TargetVal
 		big.NewInt(301).Bytes(),
 		big.NewInt(401).Bytes(),
 	}
@@ -58,11 +69,13 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 		{Key: "appArgs", Value: appArgsBytes},
 	}
 
-	ticker := time.NewTicker(TestTime * time.Second)
+	ticker := time.NewTicker(time.Duration(TestTime) * time.Second)
 	defer ticker.Stop()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go checkEvent(ctx, client, done)
+
+	targetClient := makeTargetChainClient()
+	go checkEvent(ctx, targetClient, done)
 
 	start := time.Now()
 	_, err := client.InvokeContract("caggr", "sendMsg", "", kvs, -1, true)
@@ -73,13 +86,13 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 	for {
 		select {
 		case <-ticker.C:
-			clog.Infof("跨链时延测试停止")
+			clog.Infof("跨链写时延测试停止")
 			cancel()
 			return
 		case <-done:
 			cost := time.Since(start)
 			*record = append(*record, cost)
-			clog.Infof("跨链时延测试收到事件，时延: %dms", cost.Milliseconds())
+			clog.Infof("跨链写时延测试收到事件，时延: %dms", cost.Milliseconds())
 
 			start = time.Now()
 			_, err := client.InvokeContract("caggr", "sendMsg", "", kvs, -1, true)
@@ -92,10 +105,11 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 
 func testSingleChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Duration) {
 	kvs := []*common.KeyValuePair{
-		{Key: "key", Value: []byte("key1")},
+		{Key: "key", Value: []byte(targetKey)},
+		{Key: "value", Value: []byte(targetVal)},
 	}
 
-	ticker := time.NewTicker(TestTime * time.Second)
+	ticker := time.NewTicker(time.Duration(TestTime) * time.Second)
 	defer ticker.Stop()
 	tickerT := time.NewTicker(50 * time.Millisecond)
 	defer tickerT.Stop()
@@ -103,23 +117,23 @@ func testSingleChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durat
 	for {
 		select {
 		case <-ticker.C:
-			clog.Infof("单链时延测试停止")
+			clog.Infof("单链写时延测试停止")
 			return
 		case <-tickerT.C:
 			start := time.Now()
-			_, err := client.InvokeContract("QueryApp", "getRecordPublic", "", kvs, -1, true)
+			_, err := client.InvokeContract("QueryApp", "setRecord", "", kvs, -1, true)
 			if err != nil {
 				panic(fmt.Sprintf("调用合约失败: %v", err))
 			}
 			cost := time.Since(start)
 			*record = append(*record, cost)
-			clog.Infof("单链时延测试收到事件，时延: %dms", cost.Milliseconds())
+			clog.Infof("单链写时延测试收到事件，时延: %dms", cost.Milliseconds())
 		}
 	}
 }
 
 func checkEvent(ctx context.Context, client *chainmaker_sdk_go.ChainClient, done chan<- struct{}) {
-	ec, err := client.SubscribeContractEvent(ctx, -1, -1, "QueryApp", "queryResult")
+	ec, err := client.SubscribeContractEvent(ctx, -1, -1, "QueryApp", "tx_finalize")
 	if err != nil {
 		panic(fmt.Sprintf("订阅合约事件失败: %v", err))
 	}
@@ -136,7 +150,7 @@ func checkEvent(ctx context.Context, client *chainmaker_sdk_go.ChainClient, done
 				clog.Errorf("事件类型错误")
 				return
 			}
-			if len(contractEvent.EventData) < 2 || string(contractEvent.EventData[0]) != "key1" {
+			if len(contractEvent.EventData) < 5 {
 				continue
 			}
 			clog.Debugf("收到合约事件: %v", contractEvent.EventData)
@@ -164,8 +178,27 @@ func printRecord(record []time.Duration) {
 		}
 	}
 	avg := total / time.Duration(len(record))
+	p90 := record[int(float64(len(record))*0.9)-1]
+	p99 := record[int(float64(len(record))*0.99)-1]
 
-	fmt.Printf("平均时延: %dms\n", avg.Milliseconds())
-	fmt.Printf("最大时延: %dms\n", max.Milliseconds())
-	fmt.Printf("最小时延: %dms\n", min.Milliseconds())
+	fmt.Printf("最小时延: %.3fs\n", float64(min.Milliseconds())/1000.0)
+	fmt.Printf("平均时延: %.3fs\n", float64(avg.Milliseconds())/1000.0)
+	fmt.Printf("P90 时延: %.3fs\n", float64(p90.Milliseconds())/1000.0)
+	fmt.Printf("P99 时延: %.3fs\n", float64(p99.Milliseconds())/1000.0)
+	fmt.Printf("最大时延: %.3fs\n", float64(max.Milliseconds())/1000.0)
+}
+
+func makeTargetChainClient() *chainmaker_sdk_go.ChainClient {
+	client, err := chaintools.NewChainClient(
+		"47.111.78.240:60021",
+		10,
+		"SHA256",
+		"public",
+		"chain2",
+		"chainmaker/config/user.key",
+	)
+	if err != nil {
+		panic(fmt.Sprintf("创建链客户端失败: %v", err))
+	}
+	return client
 }
