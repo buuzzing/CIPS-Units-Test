@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	"chainmaker.org/chainmaker/pb-go/v2/common"
@@ -20,6 +21,9 @@ var TestTime int // 测试总时长，单位秒
 // 配置文件路径
 var configFile *string
 
+// 源链写操作 kv
+var sourceKey, sourceVal string
+
 // 目标链写操作 kv
 var targetKey, targetVal string
 
@@ -27,8 +31,10 @@ func init() {
 	configFile = flag.String("c", "chainmaker/config/conf14-1.toml", "配置文件路径")
 	flag.IntVar(&TestTime, "t", 60, "测试总时长，单位秒")
 
-	flag.StringVar(&targetKey, "k", "key4", "目标链写操作的key")
-	flag.StringVar(&targetVal, "v", "value4", "目标链写操作的value")
+	flag.StringVar(&sourceKey, "sk", "key4", "源链写操作的key")
+	flag.StringVar(&sourceVal, "sv", "value4", "源链写操作的value")
+	flag.StringVar(&targetKey, "tk", "key4", "目标链写操作的key")
+	flag.StringVar(&targetVal, "tv", "value4", "目标链写操作的value")
 }
 
 func main() {
@@ -39,22 +45,22 @@ func main() {
 
 	client := chaintools.GetChainClient()
 
-	var crossChainRecord, singleChainRecord []time.Duration
+	var crossChainRecord, crossChainRecord2 []time.Duration
 	testCrossChain(client, &crossChainRecord)
-	testSingleChain(client, &singleChainRecord)
+	testCrossChainWithoutStack(client, &crossChainRecord2)
 
-	clog.Info("-------- 14-1-2 长安链-长安链间的跨链写时延 --------")
-	fmt.Printf("跨链写时延测试统计结果:\n")
+	clog.Info("-------- 14-4-1 长安链-以太坊间的跨链原子写时延 --------")
+	fmt.Printf("跨链原子写时延（完整协议栈）测试统计结果:\n")
 	printRecord(crossChainRecord)
-	fmt.Printf("\n单链写时延测试统计结果:\n")
-	printRecord(singleChainRecord)
+	fmt.Printf("\n跨链原子写时延（未部署协议栈）测试统计结果:\n")
+	printRecord(crossChainRecord2)
 }
 
 func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Duration) {
 	appArgs := [][]byte{
-		{2},               // OpType
-		[]byte(""),        // OriginKey
-		[]byte(""),        // OriginVal
+		{1},               // OpType
+		[]byte(sourceKey), // OriginKey
+		[]byte(sourceVal), // OriginVal
 		[]byte(targetKey), // TargetKey
 		[]byte(targetVal), // TargetVal
 		big.NewInt(301).Bytes(),
@@ -63,7 +69,7 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 	appArgsBytes, _ := json.Marshal(&appArgs)
 
 	kvs := []*common.KeyValuePair{
-		{Key: "dstChainId", Value: big.NewInt(20007).Bytes()},
+		{Key: "dstChainId", Value: big.NewInt(10006).Bytes()},
 		{Key: "srcAppId", Value: big.NewInt(101).Bytes()},
 		{Key: "dstAppId", Value: big.NewInt(101).Bytes()},
 		{Key: "appArgs", Value: appArgsBytes},
@@ -73,9 +79,7 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 	defer ticker.Stop()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-
-	targetClient := makeTargetChainClient()
-	go checkEvent(ctx, targetClient, done)
+	go checkEvent(ctx, client, done)
 
 	start := time.Now()
 	_, err := client.InvokeContract("caggr", "sendMsg", "", kvs, -1, true)
@@ -86,13 +90,13 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 	for {
 		select {
 		case <-ticker.C:
-			clog.Infof("跨链写时延测试停止")
+			clog.Infof("跨链原子写（完整协议栈）时延测试停止")
 			cancel()
 			return
 		case <-done:
 			cost := time.Since(start)
 			*record = append(*record, cost)
-			clog.Infof("跨链写时延测试收到事件，时延: %dms", cost.Milliseconds())
+			clog.Infof("跨链原子写（完整协议栈）时延测试收到事件，时延: %dms", cost.Milliseconds())
 
 			start = time.Now()
 			_, err := client.InvokeContract("caggr", "sendMsg", "", kvs, -1, true)
@@ -103,31 +107,53 @@ func testCrossChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Durati
 	}
 }
 
-func testSingleChain(client *chainmaker_sdk_go.ChainClient, record *[]time.Duration) {
+func testCrossChainWithoutStack(client *chainmaker_sdk_go.ChainClient, record *[]time.Duration) {
+	appArgs := [][]byte{
+		{1},               // OpType
+		[]byte(sourceKey), // OriginKey
+		[]byte(sourceVal), // OriginVal
+		[]byte(targetKey), // TargetKey
+		[]byte(targetVal), // TargetVal
+		big.NewInt(300).Bytes(),
+		big.NewInt(401).Bytes(),
+	}
+	appArgsBytes, _ := json.Marshal(&appArgs)
+
 	kvs := []*common.KeyValuePair{
-		{Key: "key", Value: []byte(targetKey)},
-		{Key: "value", Value: []byte(targetVal)},
+		{Key: "dstChainId", Value: big.NewInt(10006).Bytes()},
+		{Key: "srcAppId", Value: big.NewInt(101).Bytes()},
+		{Key: "dstAppId", Value: big.NewInt(101).Bytes()},
+		{Key: "appArgs", Value: appArgsBytes},
 	}
 
 	ticker := time.NewTicker(time.Duration(TestTime) * time.Second)
 	defer ticker.Stop()
-	tickerT := time.NewTicker(50 * time.Millisecond)
-	defer tickerT.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go checkEvent(ctx, client, done)
+
+	start := time.Now()
+	_, err := client.InvokeContract("caggr", "sendMsg", "", kvs, -1, true)
+	if err != nil {
+		panic(fmt.Sprintf("调用合约失败: %v", err))
+	}
 
 	for {
 		select {
 		case <-ticker.C:
-			clog.Infof("单链写时延测试停止")
+			clog.Infof("跨链原子写（未部署协议栈）时延测试停止")
+			cancel()
 			return
-		case <-tickerT.C:
-			start := time.Now()
-			_, err := client.InvokeContract("QueryApp", "setRecord", "", kvs, -1, true)
+		case <-done:
+			cost := time.Since(start)
+			*record = append(*record, cost)
+			clog.Infof("跨链原子写（未部署协议栈）时延测试收到事件，时延: %dms", cost.Milliseconds())
+
+			start = time.Now()
+			_, err := client.InvokeContract("caggr", "sendMsg", "", kvs, -1, true)
 			if err != nil {
 				panic(fmt.Sprintf("调用合约失败: %v", err))
 			}
-			cost := time.Since(start)
-			*record = append(*record, cost)
-			clog.Infof("单链写时延测试收到事件，时延: %dms", cost.Milliseconds())
 		}
 	}
 }
@@ -150,7 +176,8 @@ func checkEvent(ctx context.Context, client *chainmaker_sdk_go.ChainClient, done
 				clog.Errorf("事件类型错误")
 				return
 			}
-			if len(contractEvent.EventData) < 5 {
+			if len(contractEvent.EventData) < 2 ||
+				contractEvent.EventData[1] != "OpTypeAtomicWrite" {
 				continue
 			}
 			clog.Debugf("收到合约事件: %v", contractEvent.EventData)
@@ -165,18 +192,14 @@ func checkEvent(ctx context.Context, client *chainmaker_sdk_go.ChainClient, done
 func printRecord(record []time.Duration) {
 	fmt.Printf("总发送次数: %d\n", len(record))
 
+	slices.Sort(record)
+
 	var total time.Duration
-	var max time.Duration
-	var min time.Duration
-	for i, r := range record {
+	for _, r := range record {
 		total += r
-		if i == 0 || r > max {
-			max = r
-		}
-		if i == 0 || r < min {
-			min = r
-		}
 	}
+	max := record[len(record)-1]
+	min := record[0]
 	avg := total / time.Duration(len(record))
 	p90 := record[int(float64(len(record))*0.9)-1]
 	p99 := record[int(float64(len(record))*0.99)-1]
@@ -186,19 +209,4 @@ func printRecord(record []time.Duration) {
 	fmt.Printf("P90 时延: %.3fs\n", float64(p90.Milliseconds())/1000.0)
 	fmt.Printf("P99 时延: %.3fs\n", float64(p99.Milliseconds())/1000.0)
 	fmt.Printf("最大时延: %.3fs\n", float64(max.Milliseconds())/1000.0)
-}
-
-func makeTargetChainClient() *chainmaker_sdk_go.ChainClient {
-	client, err := chaintools.NewChainClient(
-		"47.111.78.240:60021",
-		10,
-		"SHA256",
-		"public",
-		"chain2",
-		"chainmaker/config/user.key",
-	)
-	if err != nil {
-		panic(fmt.Sprintf("创建链客户端失败: %v", err))
-	}
-	return client
 }
